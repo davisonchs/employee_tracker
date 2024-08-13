@@ -96,8 +96,15 @@ let addEmployee = async () => {
             WHERE roles.title LIKE '%anager%' OR roles.title LIKE '%ead%'
         `);
 
+        // Debugging output
+        console.log('Roles:', roles.rows);
+        console.log('Managers:', managers.rows);
+
         const roleChoices = roles.rows.map(role => ({ name: role.title, value: role.id }));
         const managerChoices = managers.rows.map(manager => ({ name: `${manager.employee_name} --- ${manager.title}`, value: manager.manager_id }));
+
+        console.log('Role Choices:', roleChoices);
+        console.log('Manager Choices:', managerChoices);
 
         const answers = await inquirer.prompt([
             { type: "input", message: "Enter the employee's first name: ", name: "first_name" },
@@ -120,6 +127,7 @@ let addEmployee = async () => {
     }
     manageEmployees();
 };
+
 
 // Function to update an employee's role
 let updateEmployeeRole = async () => {
@@ -155,17 +163,25 @@ let updateEmployeeRole = async () => {
 // Function to view all roles
 let viewAllRoles = async () => {
     console.log("\nViewing all roles...");
-    const client = await pool.connect();
     try {
+        const client = await pool.connect();
         const response = await client.query("SELECT * FROM roles");
-        console.table(response.rows);
-    } catch (err) {
-        console.error("An error occurred:", err.message);
-    } finally {
+
+        console.log('Roles:', response.rows); // Debugging output
+
+        if (response.rows.length === 0) {
+            console.log('No roles found.');
+        } else {
+            console.table(response.rows);
+        }
+
         client.release();
+    } catch (err) {
+        console.log('Error:', err.message);
     }
     manageEmployees();
 };
+
 
 // Function to add a new role
 let addRole = async () => {
