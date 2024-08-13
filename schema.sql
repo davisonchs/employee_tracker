@@ -3,12 +3,12 @@ CREATE DATABASE employee;
 
 USE employee;
 
-CREATE TABLE department (
+CREATE TABLE departments (
   id SERIAL PRIMARY KEY,
   department_name VARCHAR(30) unique NOT NULL
   );
 
-CREATE TABLE role (
+CREATE TABLE roles (
   id SERIAL PRIMARY KEY,
   title VARCHAR(30) unique NOT NULL,
   salary DECIMAL(10, 2) NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE role (
   FOREIGN KEY (department_id) REFERENCES department(id)
   );
 
-CREATE TABLE employee (
+CREATE TABLE employees (
   id SERIAL PRIMARY KEY,
   first_name VARCHAR(30) NOT NULL,
   last_name VARCHAR(30) NOT NULL,

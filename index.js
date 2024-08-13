@@ -50,32 +50,33 @@ function manageEmployees() {
         }
     })
     .catch((err) => {
-        console.log(err);
+        console.error("An error occurred:", err.message);
     });
 }
 
 // Function to view all employees
 let viewAllEmployees = async () => {
     console.log("\nViewing all Employees...");
+    const client = await pool.connect();
     try {
-        const client = await pool.connect();
         const response = await client.query(`
             SELECT e.id AS employee_id, 
                    e.first_name || ' ' || e.last_name AS employee,
                    m.first_name || ' ' || m.last_name AS manager, 
-                   role.title AS job_title, 
-                   department.department_name AS department, 
-                   role.salary  
-            FROM employee e
-            JOIN role ON e.role_id = role.id
-            JOIN department ON role.department_id = department.id
-            LEFT JOIN employee m ON m.id = e.manager_id
-            ORDER BY department.id ASC
+                   roles.title AS job_title, 
+                   departments.name AS department, 
+                   roles.salary  
+            FROM employees e
+            JOIN roles ON e.role_id = roles.id
+            JOIN departments ON roles.department_id = departments.id
+            LEFT JOIN employees m ON m.id = e.manager_id
+            ORDER BY departments.id ASC
         `);
         console.table(response.rows);
-        client.release();
     } catch (err) {
-        console.log(err);
+        console.error("An error occurred:", err.message);
+    } finally {
+        client.release();
     }
     manageEmployees();
 };
@@ -83,16 +84,16 @@ let viewAllEmployees = async () => {
 // Function to add a new employee
 let addEmployee = async () => {
     console.log("\nAdding an employee...");
+    const client = await pool.connect();
     try {
-        const client = await pool.connect();
-        const roles = await client.query("SELECT * FROM role");
+        const roles = await client.query("SELECT * FROM roles");
         const managers = await client.query(`
             SELECT e.first_name || ' ' || e.last_name AS employee_name, 
-                   role.title,
+                   roles.title,
                    e.id AS manager_id
-            FROM employee e
-            JOIN role ON e.role_id = role.id
-            WHERE role.title LIKE '%anager%' OR role.title LIKE '%ead%'
+            FROM employees e
+            JOIN roles ON e.role_id = roles.id
+            WHERE roles.title LIKE '%anager%' OR roles.title LIKE '%ead%'
         `);
 
         const roleChoices = roles.rows.map(role => ({ name: role.title, value: role.id }));
@@ -106,15 +107,16 @@ let addEmployee = async () => {
         ]);
 
         await client.query(
-            "INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES ($1, $2, $3, $4)",
+            "INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES ($1, $2, $3, $4)",
             [answers.first_name, answers.last_name, answers.role_id, answers.manager_id]
         );
 
-        const response = await client.query("SELECT * FROM employee");
+        const response = await client.query("SELECT * FROM employees");
         console.table(response.rows);
-        client.release();
     } catch (err) {
-        console.log(err);
+        console.error("An error occurred:", err.message);
+    } finally {
+        client.release();
     }
     manageEmployees();
 };
@@ -122,10 +124,10 @@ let addEmployee = async () => {
 // Function to update an employee's role
 let updateEmployeeRole = async () => {
     console.log("\nUpdating an employee role...");
+    const client = await pool.connect();
     try {
-        const client = await pool.connect();
-        const employees = await client.query("SELECT * FROM employee");
-        const roles = await client.query("SELECT * FROM role");
+        const employees = await client.query("SELECT * FROM employees");
+        const roles = await client.query("SELECT * FROM roles");
 
         const roleChoices = roles.rows.map(role => ({ name: `Role title: ${role.title} --- Role Id: ${role.id}`, value: role.id }));
         const employeeChoices = employees.rows.map(employee => ({ name: `${employee.first_name} ${employee.last_name} --- Current Role: ${employee.role_id}`, value: employee.id }));
@@ -136,15 +138,16 @@ let updateEmployeeRole = async () => {
         ]);
 
         await client.query(
-            "UPDATE employee SET role_id = $2 WHERE id = $1",
+            "UPDATE employees SET role_id = $2 WHERE id = $1",
             [answers.employee_id, answers.role_id]
         );
 
-        const response = await client.query("SELECT * FROM employee");
+        const response = await client.query("SELECT * FROM employees");
         console.table(response.rows);
-        client.release();
     } catch (err) {
-        console.log(err);
+        console.error("An error occurred:", err.message);
+    } finally {
+        client.release();
     }
     manageEmployees();
 };
@@ -152,13 +155,14 @@ let updateEmployeeRole = async () => {
 // Function to view all roles
 let viewAllRoles = async () => {
     console.log("\nViewing all roles...");
+    const client = await pool.connect();
     try {
-        const client = await pool.connect();
-        const response = await client.query("SELECT * FROM role");
+        const response = await client.query("SELECT * FROM roles");
         console.table(response.rows);
-        client.release();
     } catch (err) {
-        console.log(err);
+        console.error("An error occurred:", err.message);
+    } finally {
+        client.release();
     }
     manageEmployees();
 };
@@ -168,10 +172,10 @@ let addRole = async () => {
     console.log("\nAdding a new role to an existing department...");
     console.info("To add a new role, you must first select a department.");
     console.info("If the department does not exist, add it first.");
+    const client = await pool.connect();
     try {
-        const client = await pool.connect();
-        const departments = await client.query("SELECT * FROM department");
-        const departmentChoices = departments.rows.map(department => ({ name: department.department_name, value: department.id }));
+        const departments = await client.query("SELECT * FROM departments");
+        const departmentChoices = departments.rows.map(department => ({ name: department.name, value: department.id }));
 
         const answers = await inquirer.prompt([
             { type: "list", message: "Select the department for this role: ", name: "department_id", choices: departmentChoices },
@@ -185,14 +189,15 @@ let addRole = async () => {
         const title = answers.title.charAt(0).toUpperCase() + answers.title.slice(1).toLowerCase();
 
         await client.query(
-            "INSERT INTO role (department_id, title, salary) VALUES ($1, $2, $3)",
+            "INSERT INTO roles (department_id, title, salary) VALUES ($1, $2, $3)",
             [answers.department_id, title, answers.salary]
         );
 
         console.log(`\nRole '${title}' added successfully.`);
-        client.release();
     } catch (err) {
-        console.log(err);
+        console.error("An error occurred:", err.message);
+    } finally {
+        client.release();
     }
     manageEmployees();
 };
@@ -200,13 +205,14 @@ let addRole = async () => {
 // Function to view all departments
 let viewAllDepartments = async () => {
     console.log("\nViewing all departments...");
+    const client = await pool.connect();
     try {
-        const client = await pool.connect();
-        const response = await client.query("SELECT id, department_name FROM department");
+        const response = await client.query("SELECT id, name FROM departments");
         console.table(response.rows);
-        client.release();
     } catch (err) {
-        console.log(err);
+        console.error("An error occurred:", err.message);
+    } finally {
+        client.release();
     }
     manageEmployees();
 };
@@ -214,9 +220,9 @@ let viewAllDepartments = async () => {
 // Function to add a new department
 let addDepartment = async () => {
     console.log("\nAdding a department to the department table...");
+    const client = await pool.connect();
     try {
-        const client = await pool.connect();
-        const currentDepartments = await client.query("SELECT * FROM department");
+        const currentDepartments = await client.query("SELECT * FROM departments");
         console.log("Here are the current departments in the database: ");
         console.table(currentDepartments.rows);
 
@@ -227,18 +233,17 @@ let addDepartment = async () => {
         const department_name = answers.department_name.charAt(0).toUpperCase() + answers.department_name.slice(1).toLowerCase();
 
         await client.query(
-            "INSERT INTO department (department_name) VALUES ($1)",
+            "INSERT INTO departments (name) VALUES ($1)",
             [department_name]
         );
 
         console.log(`\nDepartment '${department_name}' added successfully.`);
-        client.release();
     } catch (err) {
-        console.log(err);
+        console.error("An error occurred:", err.message);
+    } finally {
+        client.release();
     }
     manageEmployees();
 };
 
 manageEmployees();
-
-
